@@ -1,7 +1,4 @@
-
-import jamiebalfour.zpe.core.ZPE;
 import jamiebalfour.zpe.interfaces.ZPEException;
-
 import java.io.IOException;
 
 public class Main {

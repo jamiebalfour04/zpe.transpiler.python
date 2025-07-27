@@ -1,10 +1,7 @@
 package jamiebalfour.zpe;
 
 import jamiebalfour.HelperFunctions;
-import jamiebalfour.zpe.core.IAST;
-import jamiebalfour.zpe.core.YASSByteCodes;
-import jamiebalfour.zpe.core.ZPE;
-import jamiebalfour.zpe.core.ZPEKit;
+import jamiebalfour.zpe.core.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -100,7 +97,7 @@ public class PythonTranspiler {
     }
 
 
-    ZPE.print(System.lineSeparator());
+    ZPECore.print(System.lineSeparator());
 
     if(output.toString().contains("def main")){
       output.append(System.lineSeparator()).append("main()");
@@ -146,6 +143,9 @@ public class PythonTranspiler {
       case YASSByteCodes.BOOL: {
         //Deal with Python's uppercase boolean values
         return (n.value.toString().substring(0, 1)).toUpperCase() + n.value.toString().substring(1);
+      }
+      case YASSByteCodes.MODULE:{
+        return transpileModule(n);
       }
       case YASSByteCodes.STRUCTURE: {
         return transpileStructure(n);
@@ -271,7 +271,7 @@ public class PythonTranspiler {
         return innerTranspile(n.left);
       }
       case YASSByteCodes.INDEX_ACCESSOR: {
-        return innerTranspile((IAST) n.left) + "[" + innerTranspile((IAST) n.value) + "]";
+        return innerTranspile(n.left) + "[" + innerTranspile((IAST) n.value) + "]";
       }
       case YASSByteCodes.LBRA: {
         return "(" + innerTranspile((IAST) n.value) + ")";
@@ -280,7 +280,7 @@ public class PythonTranspiler {
         return "return " + innerTranspile(n.left);
       }
       case YASSByteCodes.EMPTY: {
-        return "len(" + innerTranspile((IAST) n.left) + ") == 0";
+        return "len(" + innerTranspile(n.left) + ") == 0";
       }
 
     }
@@ -309,16 +309,18 @@ public class PythonTranspiler {
 
     String output = "";
     String properName = n.id;
+    String id = fixId(n.id);
 
-    if (yassToPythonFunctionMapping.containsKey(n.id)) {
-      output += yassToPythonFunctionMapping.get(n.id);
-      properName = yassToPythonFunctionMapping.get(n.id);
+
+    if (yassToPythonFunctionMapping.containsKey(id)) {
+      output += yassToPythonFunctionMapping.get(id);
+      properName = yassToPythonFunctionMapping.get(id);
     } else {
-      output += n.id;
+      output += id;
     }
 
-    if (pythonImports.containsKey(n.id)) {
-      addImport(pythonImports.get(n.id));
+    if (pythonImports.containsKey(id)) {
+      addImport(pythonImports.get(id));
     }
 
     if (ZPEKit.internalFunctionExists(properName) || builtInFunctions.contains(properName)) {
@@ -453,9 +455,7 @@ public class PythonTranspiler {
 
     String id = n.id;
     //Remove namespaces
-    if (n.id.contains("/")) {
-      id = n.id.replace("/", "_");
-    }
+    id = fixId(id);
 
     if (id.equals("_construct")) {
       id = "__init__";
@@ -480,15 +480,26 @@ public class PythonTranspiler {
     return output.toString();
   }
 
+  private String transpileModule(IAST n) {
+
+    StringBuilder output = new StringBuilder();
+
+    IAST current = (IAST) n.value;
+    while (current != null) {
+      output.append(innerTranspile(current)).append(System.lineSeparator());
+      current = current.next;
+    }
+
+    return output.toString();
+  }
+
   private String transpileStructure(IAST n) {
     //Transpilation of a function
     inClassDef = true;
 
     String id = n.id;
     //Remove namespaces
-    if (n.id.contains("/")) {
-      id = n.id.replace("/", "_");
-    }
+    id = fixId(n.id);
 
     StringBuilder output = new StringBuilder("class " + id + ":" + System.lineSeparator());
     indentation++;
@@ -510,15 +521,63 @@ public class PythonTranspiler {
   private String transpileNew(IAST n) {
     String id = n.id;
     //Remove namespaces
-    if (n.id.contains("/")) {
-      id = n.id.replace("/", "_");
-    }
+    id = fixId(id);
 
     return id + "(" + generateParameters((IAST) n.value) + ")";
   }
 
-  private String transpileAssign(IAST n) {
+  private String transpileAssign2(IAST n) {
     return innerTranspile(n.middle) + " = " + innerTranspile((IAST) n.value);
+  }
+
+  private String transpileAssign(IAST n) {
+    String rhs = innerTranspile((IAST) n.value);
+
+    // Handle result[i][j] = ...
+    if (n.middle.type == YASSByteCodes.INDEX_ACCESSOR &&
+            n.middle.left != null &&
+            n.middle.left.type == YASSByteCodes.INDEX_ACCESSOR &&
+            n.middle.left.left.type == YASSByteCodes.VAR) {
+
+      String arrayName = transpile_var(n.middle.left.left);
+      String i = innerTranspile((IAST) n.middle.left.value);
+      String j = innerTranspile((IAST) n.middle.value);
+
+      String indent = addIndentation();
+      String indent2 = indent + "  ";
+
+      StringBuilder code = new StringBuilder();
+      code.append("while len(").append(arrayName).append(") <= ").append(i).append(":\n");
+      code.append(indent2).append(arrayName).append(".append([])\n");
+      code.append(indent).append("while len(").append(arrayName).append("[").append(i).append("]) <= ").append(j).append(":\n");
+      code.append(indent2).append(arrayName).append("[").append(i).append("].append(0)\n");
+
+      String lhs = arrayName + "[" + i + "][" + j + "]";
+      code.append(indent).append(lhs).append(" = ").append(rhs);
+      return code.toString();
+    }
+
+    // Handle result[i] = ... (1D)
+    if (n.middle.type == YASSByteCodes.INDEX_ACCESSOR &&
+            n.middle.left.type == YASSByteCodes.VAR) {
+
+      String arrayName = transpile_var(n.middle.left);
+      String i = innerTranspile((IAST) n.middle.value);
+
+      String indent = addIndentation();
+      String indent2 = indent + "  ";
+
+      StringBuilder code = new StringBuilder();
+      code.append("while len(").append(arrayName).append(") <= ").append(i).append(":\n");
+      code.append(indent2).append(arrayName).append(".append(None)\n");
+
+      String lhs = arrayName + "[" + i + "]";
+      code.append(indent).append(lhs).append(" = ").append(rhs);
+      return code.toString();
+    }
+
+    // Fallback
+    return innerTranspile(n.middle) + " = " + rhs;
   }
 
   private String transpileExpression(IAST n) {
@@ -715,5 +774,23 @@ public class PythonTranspiler {
 
 
     return output.toString();
+  }
+
+  private String fixId(String id){
+    if (id.contains("/")) {
+      id = id.replace("/", "_");
+    }
+    if(id.contains("::")){
+      int p = id.indexOf("::");
+      id = id.substring(p+2);
+      //id = id.replace("::", "_");
+    }
+    if(id.contains("~")){
+      int p = id.indexOf("~");
+      id = id.substring(p+1);
+      //id = id.replace("~", "_");
+    }
+
+    return id;
   }
 }

@@ -124,3 +124,6 @@ def auto_input():
   except ValueError:
     return v
 --
+string_compare
+def string_compare(a, b):
+  return a == b
