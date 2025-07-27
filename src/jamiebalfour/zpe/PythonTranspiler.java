@@ -38,7 +38,7 @@ public class PythonTranspiler {
     pythonImports.put("time", "datetime");
 
     try{
-      for (String fun : HelperFunctions.getResource("/jamiebalfour/zpe/additional_functions.txt", this.getClass()).split("--")) {
+      for (String fun : HelperFunctions.getResource("/jamiebalfour/zpe/additional_functions_python.txt", this.getClass()).split("--")) {
         fun = fun.trim();
         String funcName;
         String[] lines = fun.split(System.lineSeparator());
@@ -69,7 +69,7 @@ public class PythonTranspiler {
     StringBuilder additionalFuncs = new StringBuilder();
 
     try{
-      for (String fun : HelperFunctions.getResource("/jamiebalfour/zpe/additional_functions.txt", this.getClass()).split("--")) {
+      for (String fun : HelperFunctions.getResource("/jamiebalfour/zpe/additional_functions_python.txt", this.getClass()).split("--")) {
         fun = fun.trim();
         String funcName;
         String[] lines = fun.split(System.lineSeparator());

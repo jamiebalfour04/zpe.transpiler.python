@@ -1,0 +1,15 @@
+<project name="CopyJarExample" default="copy-jar" basedir=".">
+
+    <!-- Define properties for source and destination -->
+    <property name="src.jar" value="build/zenpy.jar"/>
+    <property name="dest1.dir" value="/Users/jamiebalfour/Library/Application Support/jamiebalfour/zpe/transpilers"/>
+    <property name="dest2.dir" value="/Users/jamiebalfour/Dropbox/Programs/JARs"/>
+
+
+    <!-- Main target -->
+    <target name="copy-jar">
+        <copy file="${src.jar}" todir="${dest1.dir}" overwrite="true"/>
+        <copy file="${src.jar}" todir="${dest2.dir}" overwrite="true"/>
+    </target>
+
+</project>
