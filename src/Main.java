@@ -1,4 +1,4 @@
-import jamiebalfour.zpe.interfaces.ZPEException;
+import jamiebalfour.zpe.core.interfaces.ZPEException;
 import java.io.IOException;
 
 public class Main {
@@ -13,9 +13,9 @@ public class Main {
   private static void test(String input, String output){
 
     try {
-      String s = jamiebalfour.zpe.core.ZPEKit.convertCode(jamiebalfour.HelperFunctions.readFileAsString(input), "output", new Transpiler());
+      String s = jamiebalfour.zpe.core.ZPEKit.convertCode(jamiebalfour.FileHelperFunctions.readFileAsString(input), "output", new Transpiler());
       System.out.println(s);
-      jamiebalfour.HelperFunctions.writeFile(output, s, false);
+      jamiebalfour.FileHelperFunctions.writeFile(output, s, false);
       System.out.println(jamiebalfour.HelperFunctions.shellExec("python3 " + output));
     } catch (ZPEException e) {
       throw new RuntimeException(e);

@@ -1,5 +1,5 @@
 <component name="ArtifactManager">
-  <artifact type="jar" build-on-make="true" name="zenpy.jar build">
+  <artifact type="jar" build-on-make="true" name="zpe.transpiler.python build">
     <output-path>$PROJECT_DIR$/build/</output-path>
     <properties id="ant-postprocessing">
       <options enabled="true">
@@ -7,8 +7,8 @@
         <target>copy-jar</target>
       </options>
     </properties>
-    <root id="archive" name="zenpy.jar">
-      <element id="module-output" name="ZenPy" />
+    <root id="archive" name="zpe.transpiler.python.jar">
+      <element id="module-output" name="zpe.transpiler.python" />
       <element id="directory" name="META-INF">
         <element id="file-copy" path="$PROJECT_DIR$/META-INF/MANIFEST.MF" />
       </element>
