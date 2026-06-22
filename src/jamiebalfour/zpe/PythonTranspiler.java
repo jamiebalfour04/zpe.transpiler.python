@@ -27,7 +27,6 @@ public class PythonTranspiler {
     yassToPythonFunctionMapping.put("factorial", "math.factorial");
     yassToPythonFunctionMapping.put("list_get_length", "len");
     yassToPythonFunctionMapping.put("time", "millitime");
-    yassToPythonFunctionMapping.put("map_create_ordered", "");
     yassToPythonFunctionMapping.put("character_to_integer", "ord");
     yassToPythonFunctionMapping.put("integer_to_character", "chr");
 
@@ -97,7 +96,7 @@ public class PythonTranspiler {
     }
 
 
-    ZPECore.print(System.lineSeparator());
+    output.append(System.lineSeparator());
 
     if(output.toString().contains("def main")){
       output.append(System.lineSeparator()).append("main()");
@@ -264,6 +263,9 @@ public class PythonTranspiler {
       case YASSByteCodes.IF: {
         return transpileIf(n);
       }
+      case YASSByteCodes.WHEN:{
+        return transpileWhen(n);
+      }
       case YASSByteCodes.WHILE: {
         return transpileWhile(n);
       }
@@ -281,6 +283,9 @@ public class PythonTranspiler {
       }
       case YASSByteCodes.EMPTY: {
         return "len(" + innerTranspile(n.left) + ") == 0";
+      }
+      case YASSByteCodes.BREAK:{
+        return "break";
       }
 
     }
@@ -303,6 +308,7 @@ public class PythonTranspiler {
     }
     return output.toString();
   }
+
 
   private String transpileIdentifier(IAST n) {
     //Transpilation of a function call or whatever (anything with an identification)
@@ -360,13 +366,17 @@ public class PythonTranspiler {
 
   private String transpileDotExpression(IAST n) {
 
-    if (((IAST) n.value).id.equals("put")) {
-      usedFunctions.add("_put");
-      return "_put(" + innerTranspile(n.left) + ", " + generateParameters((IAST) ((IAST) n.value).value) + ")";
-    } else if (((IAST) n.value).id.equals("length")) {
-      return "len(" + innerTranspile(n.left) + ")";
-    } else {
-      return innerTranspile(n.left) + "." + innerTranspile((IAST) n.value);
+    switch (((IAST) n.value).id) {
+      case "put":
+        usedFunctions.add("_put");
+        return "_put(" + innerTranspile(n.left) + ", " + generateParameters((IAST) ((IAST) n.value).value) + ")";
+      case "append":
+        usedFunctions.add("_append");
+        return "_append(" + innerTranspile(n.left) + ", " + generateParameters((IAST) ((IAST) n.value).value) + ")";
+      case "length":
+        return "len(" + innerTranspile(n.left) + ")";
+      default:
+        return innerTranspile(n.left) + "." + innerTranspile((IAST) n.value);
     }
 
 
@@ -552,6 +562,45 @@ public class PythonTranspiler {
       code.append(indent).append("while len(").append(arrayName).append("[").append(i).append("]) <= ").append(j).append(":\n");
       code.append(indent2).append(arrayName).append("[").append(i).append("].append(0)\n");
 
+      /*String indent = addIndentation();
+      String indent2 = indent + "  ";
+      String indent3 = indent2 + "  ";
+
+      StringBuilder code = new StringBuilder();
+
+      /*code.append("if isinstance(")
+              .append(arrayName)
+              .append(", list):\n");
+
+      code.append(indent2)
+              .append("while len(")
+              .append(arrayName)
+              .append(") <= ")
+              .append(i)
+              .append(":\n");
+
+      code.append(indent3)
+              .append(arrayName)
+              .append(".append([])\n");
+
+      code.append(indent2)
+              .append("while len(")
+              .append(arrayName)
+              .append("[")
+              .append(i)
+              .append("]) <= ")
+              .append(j)
+              .append(":\n");
+
+      code.append(indent3)
+              .append(arrayName)
+              .append("[")
+              .append(i)
+              .append("].append(0)\n");
+
+      code.append("expand_if_list(" + arrayName + ", " + i + ", " + j + ")\n");
+      usedFunctions.add("expand_if_list");*/
+
       String lhs = arrayName + "[" + i + "][" + j + "]";
       code.append(indent).append(lhs).append(" = ").append(rhs);
       return code.toString();
@@ -568,8 +617,11 @@ public class PythonTranspiler {
       String indent2 = indent + "  ";
 
       StringBuilder code = new StringBuilder();
-      code.append("while len(").append(arrayName).append(") <= ").append(i).append(":\n");
-      code.append(indent2).append(arrayName).append(".append(None)\n");
+      /*code.append("while len(").append(arrayName).append(") <= ").append(i).append(":\n");
+      code.append(indent2).append(arrayName).append(".append(None)\n");*/
+
+      code.append("expand_if_list(" + arrayName + ", " + i + ", 1)\n");
+      usedFunctions.add("expand_if_list");
 
       String lhs = arrayName + "[" + i + "]";
       code.append(indent).append(lhs).append(" = ").append(rhs);
@@ -757,6 +809,106 @@ public class PythonTranspiler {
 
 
     return output.toString();
+  }
+
+  private String transpileWhen(IAST n) {
+    StringBuilder output = new StringBuilder();
+
+    String id = n.id;
+    if (id.startsWith("$")) {
+      id = id.substring(1);
+    }
+    id = checkId(id);
+
+    IAST currentSelect = (IAST) n.value;
+    boolean first = true;
+
+    while (currentSelect != null) {
+      output.append(first ? "if " : addIndentation() + "elif ");
+      output.append(id)
+              .append(" == ")
+              .append(transpileWhenValue(currentSelect.value))
+              .append(":")
+              .append(System.lineSeparator());
+
+      indentation++;
+
+      IAST current = currentSelect.left;
+      if (current == null) {
+        output.append(addIndentation()).append("pass").append(System.lineSeparator());
+      }
+      while (current != null) {
+        output.append(addIndentation()).append(innerTranspile(current)).append(System.lineSeparator());
+        current = current.next;
+      }
+
+      indentation--;
+
+      first = false;
+      currentSelect = currentSelect.next;
+    }
+
+    if (n.middle != null) {
+      output.append(addIndentation()).append("else:").append(System.lineSeparator());
+
+      indentation++;
+
+      IAST current = n.middle;
+      if (current == null) {
+        output.append(addIndentation()).append("pass").append(System.lineSeparator());
+      }
+      while (current != null) {
+        output.append(addIndentation()).append(innerTranspile(current)).append(System.lineSeparator());
+        current = current.next;
+      }
+
+      indentation--;
+    }
+
+    return output.toString();
+  }
+
+  private String transpileWhenValue(Object value) {
+    if (value == null) {
+      return "None";
+    }
+
+    String text = value.toString();
+
+    if (text.equalsIgnoreCase("true")) {
+      return "True";
+    }
+
+    if (text.equalsIgnoreCase("false")) {
+      return "False";
+    }
+
+    if (text.equalsIgnoreCase("null")) {
+      return "None";
+    }
+
+    if (isPythonNumber(text)) {
+      return text;
+    }
+
+    return "\"" + escapePythonString(text) + "\"";
+  }
+
+  private boolean isPythonNumber(String text) {
+    if (text == null || text.trim().isEmpty()) {
+      return false;
+    }
+
+    try {
+      Double.parseDouble(text);
+      return true;
+    } catch (NumberFormatException ex) {
+      return false;
+    }
+  }
+
+  private String escapePythonString(String text) {
+    return text.replace("\\", "\\\\").replace("\"", "\\\"");
   }
 
   private String transpileWhile(IAST n) {

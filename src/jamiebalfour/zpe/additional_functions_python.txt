@@ -4,6 +4,17 @@ def _put(i, e, v = None):
     i[e] = v
   elif type(i) == type([]):
     i.append(e)
+  return i
+--
+_append
+def _append(i, e):
+  if isinstance(collection, list):
+    collection.append(value)
+  elif isinstance(collection, dict):
+    collection[value[0]] = value[1]
+  else:
+    raise TypeError("append() only supports lists and maps")
+  return collection
 --
 list_swap_elements
 def list_swap_elements(l, a, b):
@@ -14,7 +25,7 @@ def list_swap_elements(l, a, b):
 --
 map_get_keys
 def map_get_keys(m):
-  return m.keys()
+  return list(m.keys())
 --
 throw_error
 def throw_error(msg):
@@ -127,3 +138,28 @@ def auto_input():
 string_compare
 def string_compare(a, b):
   return a == b
+--
+Math~random_number
+def random_number(max, min):
+  return random.randint(min, max)
+--
+map_create_ordered
+def map_create_ordered(*args):
+  result = {}
+
+  for pair in args:
+    result[pair[0]] = pair[1]
+
+  return result
+--
+expand_if_list
+def expand_if_list(array, i, j):
+  if isinstance(array, list):
+    while len(array) <= i:
+      array.append([])
+      while len(array[i]) <= j:
+        array[i].append(0)
+--
+max_integer
+def max_integer():
+  return 2**31 - 1
